@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 无限问答实验室</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            background: #0a0e17;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+        }
+        .container {
+            background: #111927;
+            border: 1px solid #1e3a5f;
+            border-radius: 24px;
+            padding: 50px 40px;
+            max-width: 620px;
+            width: 100%;
+            box-shadow: 0 0 60px rgba(0, 180, 255, 0.08);
+            text-align: center;
+        }
+        .badge {
+            display: inline-block;
+            background: #0d2b3e;
+            color: #4fc3f7;
+            font-size: 12px;
+            letter-spacing: 2px;
+            padding: 4px 14px;
+            border-radius: 40px;
+            border: 1px solid #1e4a6b;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        h1 { color: #e8f0fe; font-size: 26px; font-weight: 400; letter-spacing: 1px; }
+        .sub { color: #6b8ba4; font-size: 14px; margin: 12px 0 28px; border-bottom: 1px dashed #1e3a5f; padding-bottom: 20px; }
+        .sub strong { color: #7ecf8a; font-weight: 400; }
+        .input-area { display: flex; flex-direction: column; gap: 14px; }
+        textarea {
+            width: 100%; height: 90px; background: #0b141f; border: 1px solid #1e3a5f;
+            border-radius: 14px; color: #c8dce6; font-size: 15px; font-family: 'Courier New', monospace;
+            padding: 14px 16px; resize: vertical; outline: none;
+        }
+        textarea:focus { border-color: #3d8ec0; }
+        .btn {
+            background: #0f2a3f; border: 1px solid #2a6b94; color: #b0daf5; font-size: 18px;
+            font-family: 'Courier New', monospace; padding: 14px 0; border-radius: 40px;
+            cursor: pointer; transition: all 0.25s; letter-spacing: 2px;
+        }
+        .btn:hover:not(:disabled) { background: #16445f; border-color: #4a9fd4; box-shadow: 0 0 24px rgba(52, 152, 219, 0.2); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        #loadingBox { display: none; margin-top: 24px; padding: 16px 18px; background: #0b1825; border-radius: 16px; border: 1px solid #1a3f5a; text-align: left; }
+        #loadingBox .line { color: #6fa3c7; font-size: 13px; padding: 3px 0; opacity: 0; animation: typing 0.5s forwards; }
+        #loadingBox .line.green { color: #7ecf8a; }
+        #loadingBox .line.cyan { color: #5fc9e8; }
+        .cursor-blink { display: inline-block; width: 10px; height: 18px; background: #4fc3f7; vertical-align: text-bottom; margin-left: 4px; animation: blink 0.8s step-end infinite; }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes typing { 0% { opacity: 0; transform: translateX(-6px); } 100% { opacity: 1; transform: translateX(0); } }
+        #resultBox { display: none; margin-top: 22px; padding: 22px 20px; background: #1a0f0f; border: 1px solid #b34a4a; border-radius: 16px; color: #f0c8c8; }
+        #resultBox .big { font-size: 28px; font-weight: 700; color: #ff7b7b; letter-spacing: 1px; }
+        #resultBox .detail { font-size: 14px; color: #b58a8a; margin-top: 8px; border-top: 1px solid #3a1e1e; padding-top: 12px; }
+        .footer-meta { margin-top: 30px; font-size: 11px; color: #28455b; letter-spacing: 1px; border-top: 1px solid #142433; padding-top: 18px; }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <div class="badge">✦ GPT-4 Turbo · 免费体验</div>
+        <h1>AI 无限问答实验室</h1>
+        <div class="sub">已接入 <strong>$1000</strong> API 额度 · 随便问，不设限</div>
+        <div class="input-area">
+            <textarea id="questionInput" placeholder="输入任何问题，AI 将深度思考...&#10;例如：如何在一周内学会写诗？"></textarea>
+            <button class="btn" id="askBtn">⏎ 发送并消耗 API</button>
+        </div>
+        <div id="loadingBox">
+            <div class="line green">> 正在连接 GPT-4 核心节点...</div>
+            <div class="line cyan">> 已分配 256 个推理单元</div>
+            <div class="line">> 分析中 <span class="cursor-blink"></span></div>
+        </div>
+        <div id="resultBox">
+            <div class="big">⚡ 骗你的。</div>
+            <div style="font-size:16px; margin-top: 6px;">根本没接 API，你刚才看到的一切都是假的。</div>
+            <div class="detail" id="wastedTime">已成功浪费你 0 秒生命，感谢参与。</div>
+            <div style="margin-top: 14px; font-size:13px; color:#b36b6b;">—— 你刚才是不是很心动？这就是你差点帮我烧掉账单的样子。</div>
+        </div>
+        <div class="footer-meta"><span>◈</span> 本网站不消耗任何真实 API · 仅供娱乐 <span>◈</span></div>
+    </div>
+    <script>
+        (function() {
+            const questionInput = document.getElementById('questionInput');
+            const askBtn = document.getElementById('askBtn');
+            const loadingBox = document.getElementById('loadingBox');
+            const resultBox = document.getElementById('resultBox');
+            const wastedSpan = document.getElementById('wastedTime');
+            let startTime = null, timerInterval = null;
+            askBtn.addEventListener('click', function() {
+                const text = questionInput.value.trim();
+                if (!text) { questionInput.style.borderColor = '#b34a4a'; setTimeout(() => { questionInput.style.borderColor = '#1e3a5f'; }, 600); return; }
+                askBtn.disabled = true; resultBox.style.display = 'none'; loadingBox.style.display = 'block';
+                const lines = loadingBox.querySelectorAll('.line');
+                lines.forEach((el, idx) => { el.style.animation = 'none'; el.style.opacity = '0'; void el.offsetHeight; el.style.animation = `typing 0.5s forwards`; el.style.animationDelay = `${idx * 0.8}s`; });
+                startTime = Date.now(); if (timerInterval) clearInterval(timerInterval);
+                const delay = 5000 + Math.random() * 3000;
+                setTimeout(() => {
+                    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    loadingBox.style.display = 'none'; resultBox.style.display = 'block';
+                    wastedSpan.textContent = `已成功浪费你 ${elapsed} 秒生命，感谢参与。`;
+                    askBtn.disabled = false;
+                }, delay);
+            });
+            questionInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askBtn.click(); } });
+        })();
+    </script>
+</body>
+  </html>
